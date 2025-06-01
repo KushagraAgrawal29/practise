@@ -26,7 +26,7 @@ pipeline {
 
         stage('Run Hello Script') {
             steps {
-                sh 'chmod +x hello.sh && ./hello.sh'
+                sh 'chmod +x Jenkins-01/hello.sh && ./Jenkins-01/hello.sh'
             }
         }
 
