@@ -101,4 +101,28 @@ pipeline {
             }
         }
     }
+
+    post {
+        success {
+            echo '✅ Pipeline completed successfully.'
+            mail to: 'athravgarg29@gmail.com',
+                 subject: "✅ SUCCESS: ${env.JOB_NAME} #${env.BUILD_NUMBER}",
+                 body: "The Jenkins pipeline '${env.JOB_NAME}' completed successfully.\nBuild URL: ${env.BUILD_URL}"
+        }
+
+        failure {
+            echo '❌ Pipeline failed.'
+            mail to: 'athravgarg29@gmail.com',
+                 subject: "❌ FAILURE: ${env.JOB_NAME} #${env.BUILD_NUMBER}",
+                 body: "The Jenkins pipeline '${env.JOB_NAME}' has failed.\nCheck console: ${env.BUILD_URL}"
+        }
+
+        always {
+            echo '📬 This runs whether success or failure.'
+        }
+
+        aborted {
+            echo "⚠️ Pipeline aborted by user."
+        }
+    }
 }
