@@ -1,0 +1,104 @@
+pipeline {
+    agent any 
+
+    environment {
+        DISK_THRESHOLD = '80'
+        MEMORY_THRESHOLD = '80'
+        CPU_THRESHOLD = '80'
+    }
+
+    options {
+        timeout(time: 20, unit: 'MINUTES')
+        buildDiscarder(logRotator(numToKeepStr: '10'))
+    }
+
+    stages {
+        stage ('Pre-Check: Approval') {
+            steps {
+                input message: "Do you want to run system checks ?"
+            }
+        }
+
+        stage ('Disk Usage Check') {
+            steps {
+                script {
+                    def disk = sh(script: "df / | tail -1 | awk '{print \$5}' | sed 's/%//g'", returnStdout: true).trim()
+                    echo "Disk usage is ${disk}%"
+                    if (disk.toInteger() > DISK_THRESHOLD.toInteger()) {
+                        error "Disk usage is too high!"
+                    }
+                }
+            }
+        }
+
+        stage ('CPU Usage Check') {
+            steps {
+                script {
+                    def cpu = sh(script: "top -bn1 | grep 'Cpu' | awk '{print 100 - \$8}'", returnStdout: true).trim()
+                    echo "CPU usage is ${cpu}%"
+                    if (cpu.toInteger() > CPU_THRESHOLD.toInteger()) {
+                        error "CPU usage is too high!"
+                    }
+                }
+            }
+        }
+
+        stage ('Memory Usage Check') {
+            steps {
+                script {
+                    def memory = sh(script: "free -m | awk 'NR==2{printf \"%.2f\", \$3*100/\$2}'", returnStdout: true).trim()
+                    echo "Memory usage is ${memory}%"
+                    if (memory.toInteger() > MEMORY_THRESHOLD.toInteger()) {
+                        error "Memory usage is too high!"
+                    }
+                }
+            }
+        }
+
+        stage ('Parallel Checks') {
+            parallet {
+                stage('Uptime') {
+                    steps {
+                        sh 'uptime -p'
+                    }
+                }
+                stage('Current Users') {
+                    steps {
+                        sh 'who'
+                    }
+                }
+                stage('Open Ports') {
+                    steps {
+                        sh 'ss -tuln'
+                    }
+                }
+            }
+        }
+
+        stage ('User Audit') {
+            when {
+                expression { return params.TARGET_USER != '' }
+            }
+            steps {
+                script {
+                    def userExists = sh(script: "id -u ${params.TARGET_USER}", returnStatus: true)
+                    if (userExists) {
+                        echo "User ${params.TARGET_USER} exists"
+                        sh "groups ${params.TARGET_USER}"
+                    }
+                    else {
+                        echo "User ${params.TARGET_USER} does not exist"
+                    }
+                }
+            }
+        }
+
+        stage('Retry on Intermittent Failures') {
+            steps {
+                retry(3) {
+                    sh 'curl -s https://www.google.com > /dev/null'
+                }
+            }
+        }
+    }
+}
