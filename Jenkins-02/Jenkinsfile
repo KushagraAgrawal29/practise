@@ -56,7 +56,7 @@ pipeline {
         }
 
         stage ('Parallel Checks') {
-            parallet {
+            parallel {
                 stage('Uptime') {
                     steps {
                         sh 'uptime -p'
