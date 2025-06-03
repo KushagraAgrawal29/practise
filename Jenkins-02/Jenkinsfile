@@ -34,7 +34,7 @@ pipeline {
         stage ('CPU Usage Check') {
             steps {
                 script {
-                    def cpu = sh(script: "top -bn1 | grep 'Cpu' | awk '{print 100 - \$8}'", returnStdout: true).trim()
+                    def cpu = sh(script: "top -l 1 | grep 'CPU usage' | awk '{print 100 - \$7}'", returnStdout: true).trim()
                     echo "CPU usage is ${cpu}%"
                     if (cpu.toInteger() > CPU_THRESHOLD.toInteger()) {
                         error "CPU usage is too high!"
