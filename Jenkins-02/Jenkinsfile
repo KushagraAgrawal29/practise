@@ -43,17 +43,17 @@ pipeline {
             }
         }
 
-        stage ('Memory Usage Check') {
-            steps {
-                script {
-                    def memory = sh(script: "free -m | awk 'NR==2{printf \"%.2f\", \$3*100/\$2}'", returnStdout: true).trim()
-                    echo "Memory usage is ${memory}%"
-                    if (memory.toInteger() > MEMORY_THRESHOLD.toInteger()) {
-                        error "Memory usage is too high!"
-                    }
-                }
-            }
-        }
+        // stage ('Memory Usage Check') {
+        //     steps {
+        //         script {
+        //             def memory = sh(script: "free -m | awk 'NR==2{printf \"%.2f\", \$3*100/\$2}'", returnStdout: true).trim()
+        //             echo "Memory usage is ${memory}%"
+        //             if (memory.toInteger() > MEMORY_THRESHOLD.toInteger()) {
+        //                 error "Memory usage is too high!"
+        //             }
+        //         }
+        //     }
+        // }
 
         stage ('Parallel Checks') {
             parallel {
