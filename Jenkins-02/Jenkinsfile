@@ -35,25 +35,13 @@ pipeline {
             steps {
                 script {
                     def cpu = sh(script: "top -l 1 | grep 'CPU usage' | awk '{print 100 - \$7}'", returnStdout: true).trim()
-                    echo "CPU usage is ${cpu}%"
+                    echo "Your CPU usage is ${cpu}%"
                     if (cpu.toInteger() > CPU_THRESHOLD.toInteger()) {
                         error "CPU usage is too high!"
                     }
                 }
             }
         }
-
-        // stage ('Memory Usage Check') {
-        //     steps {
-        //         script {
-        //             def memory = sh(script: "free -m | awk 'NR==2{printf \"%.2f\", \$3*100/\$2}'", returnStdout: true).trim()
-        //             echo "Memory usage is ${memory}%"
-        //             if (memory.toInteger() > MEMORY_THRESHOLD.toInteger()) {
-        //                 error "Memory usage is too high!"
-        //             }
-        //         }
-        //     }
-        // }
 
         stage ('Parallel Checks') {
             parallel {
