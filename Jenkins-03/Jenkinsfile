@@ -1,0 +1,11 @@
+pipeline {
+    agent any
+
+    stages {
+        stage ("Pre-Check Approval") {
+            steps {
+                input message: "Do you want to run system checks ?"
+            }
+        }
+    }
+}
