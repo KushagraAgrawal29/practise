@@ -1,6 +1,18 @@
 pipeline {
     agent any
 
+    options {
+        timestamps()
+        timeout(time:30,unit: 'MINUTES');
+    }
+
+    environment {
+        BACKUP_SCRIPT = "${HOME}/company-backup-system/bin/directory_backup.sh"
+        CONFIG_FILE = "${HOME}/company-backup-system/config/backup.conf"
+        LOG_FILE = "${HOME}/company-backup-system/logs/backup.log"
+        HOME = "${HOME}"
+    }
+
     stages {
         stage ("Pre-Check Approval") {
             steps {
