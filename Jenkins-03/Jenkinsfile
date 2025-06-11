@@ -1,23 +1,115 @@
 pipeline {
     agent any
-
+    
     options {
         timestamps()
-        timeout(time:30,unit: 'MINUTES');
+        timeout(time: 30, unit: 'MINUTES')
     }
-
+    
     environment {
-        BACKUP_SCRIPT = "${HOME}/company-backup-system/bin/directory_backup.sh"
-        CONFIG_FILE = "${HOME}/company-backup-system/config/backup.conf"
-        LOG_FILE = "${HOME}/company-backup-system/logs/backup.log"
-        HOME = "${HOME}"
+        BACKUP_SCRIPT = '/opt/company/backup-system/bin/directory_backup.sh'
+        CONFIG_FILE = '/opt/company/backup-system/config/backup.conf'
+        LOG_FILE = '/opt/company/backup-system/logs/backup.log'
     }
-
+    
     stages {
-        stage ("Pre-Check Approval") {
+        stage('Initialize') {
             steps {
-                input message: "Do you want to run system checks ?"
+                script {
+                    currentBuild.displayName = "Backup System - ${env.BUILD_NUMBER}"
+                    currentBuild.description = "Backup management pipeline"
+                }
             }
+        }
+        
+        stage('Run Backup Manually') {
+            when {
+                expression { params.MANUAL_TRIGGER }
+            }
+            steps {
+                script {
+                    try {
+                        sh """
+                            echo "\$(date) - Manual backup triggered by Jenkins" >> ${LOG_FILE}
+                            ${BACKUP_SCRIPT}
+                        """
+                        emailext (
+                            subject: "SUCCESS: Manual Backup Completed - ${env.JOB_NAME}",
+                            body: "Manual backup was executed successfully.\n\nJenkins Build: ${env.BUILD_URL}",
+                            to: 'sysadmin-team@company.com'
+                        )
+                    } catch (Exception e) {
+                        emailext (
+                            subject: "FAILED: Manual Backup - ${env.JOB_NAME}",
+                            body: "Manual backup failed with error:\n\n${e}\n\nJenkins Build: ${env.BUILD_URL}",
+                            to: 'sysadmin-team@company.com'
+                        )
+                        error("Manual backup failed")
+                    }
+                }
+            }
+        }
+        
+        stage('Verify Configuration') {
+            steps {
+                script {
+                    def config = readProperties file: "${CONFIG_FILE}"
+                    echo "Current configuration:"
+                    echo "Backup Sources: ${config.BACKUP_SOURCES}"
+                    echo "Backup Destination: ${config.BACKUP_DEST}"
+                    echo "Retention Days: ${config.RETENTION_DAYS}"
+                    
+                    if (!config.BACKUP_SOURCES?.trim() || !config.BACKUP_DEST?.trim() || !config.RETENTION_DAYS?.trim()) {
+                        error("Invalid configuration detected in ${CONFIG_FILE}")
+                    }
+                }
+            }
+        }
+        
+        stage('Monitor Last Backup') {
+            steps {
+                script {
+                    def lastBackup = sh(script: "grep 'Backup completed successfully' ${LOG_FILE} | tail -1", returnStdout: true).trim()
+                    def lastError = sh(script: "grep 'ERROR' ${LOG_FILE} | tail -1", returnStdout: true).trim()
+                    
+                    if (lastBackup) {
+                        echo "Last successful backup: ${lastBackup}"
+                    } else {
+                        echo "No successful backups found in logs"
+                    }
+                    
+                    if (lastError) {
+                        echo "Last error encountered: ${lastError}"
+                    }
+                    
+                    def lastBackupTime = sh(script: "date -d \"\$(grep 'Backup completed successfully' ${LOG_FILE} | tail -1 | cut -d'-' -f1)\" +%s", returnStdout: true).trim()
+                    def currentTime = sh(script: "date +%s", returnStdout: true).trim()
+                    
+                    if (lastBackupTime && (currentTime - lastBackupTime > 86400)) {
+                        emailext (
+                            subject: "WARNING: No recent backups detected - ${env.JOB_NAME}",
+                            body: "No successful backups in the last 24 hours.\n\nLast backup: ${lastBackup ?: 'None'}\nLast error: ${lastError ?: 'None'}\n\nJenkins Build: ${env.BUILD_URL}",
+                            to: 'sysadmin-team@company.com'
+                        )
+                    }
+                }
+            }
+        }
+        
+        stage('Archive Logs') {
+            steps {
+                script {
+                    def logArchive = "backup_logs_${currentBuild.number}.tar.gz"
+                    sh "tar -czf ${logArchive} ${LOG_FILE}"
+                    archiveArtifacts artifacts: "${logArchive}", onlyIfSuccessful: false
+                }
+            }
+        }
+    }
+    
+    post {
+        always {
+        
         }
     }
 }
